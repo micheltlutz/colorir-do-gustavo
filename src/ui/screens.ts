@@ -58,6 +58,13 @@ export class GalleryScreen {
     });
     this.el.querySelector('.gallery-top')!.append(this.soundBtn);
 
+    // Aberto pela página "Jogos do Gustavo": botão para voltar para lá.
+    if (location.hash === '#jogos') {
+      this.el
+        .querySelector('.gallery-top')!
+        .prepend(onTap(iconButton('back', 'Todos os jogos'), () => location.assign('/jogos-do-gustavo/')));
+    }
+
     const grid = this.el.querySelector('.gallery-grid')!;
     for (const d of DRAWINGS) {
       const card = document.createElement('button');
