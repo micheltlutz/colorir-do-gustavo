@@ -44,6 +44,9 @@ export class GalleryScreen {
   readonly el = makeScreen('gallery');
   private readonly soundBtn: HTMLButtonElement;
   private readonly cards = new Map<string, { card: HTMLButtonElement; view: DrawingView }>();
+  private readonly body: HTMLElement;
+  /** Onde a galeria estava rolada ao abrir um desenho (para voltar no mesmo lugar). */
+  private scrollTop = 0;
 
   constructor(nav: Nav) {
     this.el.innerHTML = `
@@ -64,6 +67,7 @@ export class GalleryScreen {
         .prepend(onTap(iconButton('back', 'Todos os jogos'), () => location.assign('/jogos-do-gustavo/')));
     }
 
+    this.body = this.el.querySelector('.gallery-body')!;
     const grid = this.el.querySelector('.gallery-grid')!;
     for (const d of DRAWINGS) {
       const card = document.createElement('button');
@@ -76,7 +80,10 @@ export class GalleryScreen {
       sticker.className = 'sticker';
       sticker.innerHTML = ICONS.star;
       card.append(sticker);
-      onTap(card, () => nav.paint(d.id));
+      onTap(card, () => {
+        this.scrollTop = this.body.scrollTop;
+        nav.paint(d.id);
+      });
       grid.append(card);
       this.cards.set(d.id, { card, view });
     }
@@ -87,6 +94,7 @@ export class GalleryScreen {
       applyFills(view, store.fillsOf(id));
       card.classList.toggle('done', store.isDone(id));
     }
+    this.body.scrollTop = this.scrollTop;
     this.renderSound();
   }
 

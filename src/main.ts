@@ -11,7 +11,14 @@ function blockBrowserGestures(): void {
   for (const type of ['gesturestart', 'gesturechange', 'gestureend', 'dblclick', 'contextmenu', 'selectstart']) {
     document.addEventListener(type, prevent, { passive: false });
   }
-  document.addEventListener('touchmove', prevent, { passive: false });
+  // Só a galeria rola; no resto, arrastar o dedo não mexe a página.
+  document.addEventListener(
+    'touchmove',
+    (e) => {
+      if (!(e.target as Element).closest?.('.gallery-body')) e.preventDefault();
+    },
+    { passive: false },
+  );
   // Sem um listener de touchstart, o iOS não mostra o efeito de botão apertado (:active).
   document.addEventListener('touchstart', () => {}, { passive: true });
 }

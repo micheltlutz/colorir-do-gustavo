@@ -184,6 +184,65 @@ const MANE: [number, number, number][] = Array.from({ length: 12 }, (_, i) => {
 const BALLOON_LINES = [-1, -2 / 3, -1 / 3, 0, 1 / 3, 2 / 3, 1];
 const RAINBOW = [192, 170, 148, 126, 104, 82, 60];
 
+/** Pedaço de anel (para-lamas), entre os ângulos a0 e a1 em graus (0 = direita, 90 = baixo). */
+function ringArc(cx: number, cy: number, R: number, r: number, a0: number, a1: number): Shape {
+  const at = (rad: number, deg: number) =>
+    xy(cx + rad * Math.cos((deg * Math.PI) / 180), cy + rad * Math.sin((deg * Math.PI) / 180));
+  const large = a1 - a0 > 180 ? 1 : 0;
+  return path(`M${at(R, a0)} A${R} ${R} 0 ${large} 1 ${at(R, a1)} L${at(r, a1)} A${r} ${r} 0 ${large} 0 ${at(r, a0)} Z`);
+}
+
+/**
+ * Faixa do tambor da betoneira: o tambor é uma elipse (semieixos a e b) com o
+ * centro em (cx, cy), inclinada `deg` graus. A faixa vai de s0 a s1 ao longo do eixo.
+ */
+function drumBand(cx: number, cy: number, a: number, b: number, deg: number, s0: number, s1: number): Shape {
+  const th = (deg * Math.PI) / 180;
+  const [ux, uy] = [Math.cos(th), Math.sin(th)];
+  const [nx, ny] = [-uy, ux];
+  const f0 = Math.acos(s0 / a);
+  const f1 = Math.acos(s1 / a);
+  const top: string[] = [];
+  const bottom: string[] = [];
+  const N = 14;
+  for (let i = 0; i <= N; i++) {
+    const f = f0 + ((f1 - f0) * i) / N;
+    const s = a * Math.cos(f);
+    const r = b * Math.sin(f);
+    top.push(xy(cx + ux * s - nx * r, cy + uy * s - ny * r));
+    bottom.push(xy(cx + ux * s + nx * r, cy + uy * s + ny * r));
+  }
+  return path(`M${top.join(' L')} L${bottom.reverse().join(' L')} Z`);
+}
+
+/** Degraus de uma escada reta (traços por cima), entre as frações t0 e t1 do comprimento. */
+function rungs(x1: number, y1: number, x2: number, y2: number, half: number, t0: number, t1: number, n: number): string {
+  const len = Math.hypot(x2 - x1, y2 - y1);
+  const [dx, dy] = [(x2 - x1) / len, (y2 - y1) / len];
+  const [nx, ny] = [-dy * half, dx * half];
+  const lines: string[] = [];
+  for (let i = 0; i < n; i++) {
+    const t = t0 + ((t1 - t0) * i) / (n - 1);
+    const [px, py] = [x1 + (x2 - x1) * t, y1 + (y2 - y1) * t];
+    lines.push(`M${xy(px + nx, py + ny)} L${xy(px - nx, py - ny)}`);
+  }
+  return `<path d="${lines.join(' ')}"/>`;
+}
+
+/** Janelas de prédio (só o contorno, não se pintam). */
+function windowGrid(x: number, y: number, cols: number, rows: number, w: number, h: number, gx: number, gy: number): string {
+  let out = '';
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      out += `<rect x="${x + c * (w + gx)}" y="${y + r * (h + gy)}" width="${w}" height="${h}" rx="3"/>`;
+    }
+  }
+  return out;
+}
+
+/** Faixas do tambor da betoneira, de trás (esquerda) para a frente. */
+const DRUM_CUTS = [-125, -80, -30, 20, 70, 125];
+
 export const DRAWINGS: Drawing[] = [
   {
     id: 'carro',
@@ -885,5 +944,298 @@ export const DRAWINGS: Drawing[] = [
     ],
     ink: `<path d="M-10 18 Q200 122 410 18"/><path d="M48 216 Q40 250 50 290 M352 216 Q362 240 354 262"/>
       <path d="M39 300 V352"/>`,
+  },
+
+  // ---------- veículos pedidos pelo Gustavo ----------
+
+  {
+    id: 'bombeiros-escada',
+    label: 'Caminhão de bombeiro salvando o gatinho',
+    regions: [
+      background('ceu'),
+      region('sol', circle(345, 52, 28)),
+      region('nuvem', cloud(220, 70, 0.7)),
+      region('estrada', rect(-10, 318, 420, 100)),
+      region('tronco', rect(64, 180, 30, 140, 4)),
+      region('copa', circle(80, 140, 62)),
+      region('gato', ellipse(68, 70, 24, 16)),
+      region(
+        'gato-cabeca',
+        path('M86 56 Q86 46 91 41 L91 27 L102 37 Q106 36 110 37 L120 27 L120 41 Q125 46 125 56 Q125 71 105.5 71 Q86 71 86 56 Z'),
+      ),
+      region('escada', bar(252, 192, 156, 100, 26)),
+      region('cesto', path('M124 86 L166 86 L161 116 L129 116 Z')),
+      region('corpo', rect(150, 200, 160, 78, 10)),
+      region('base', rect(224, 182, 60, 24, 6)),
+      region('porta-1', rect(166, 214, 54, 38, 6)),
+      region('porta-2', rect(234, 214, 54, 38, 6)),
+      region('sirene', path('M318 164 Q318 140 336 140 Q354 140 354 164 Z')),
+      region('cabine', path('M308 162 L350 162 Q362 162 368 172 L392 214 L392 278 L308 278 Z')),
+      region('janela', path('M322 176 L348 176 L374 214 L322 214 Z')),
+      region('farol', circle(378, 238, 10)),
+      region('parachoque', rect(374, 256, 24, 22, 6)),
+      region('roda-1', circle(200, 286, 32)),
+      region('calota-1', circle(200, 286, 12)),
+      region('roda-2', circle(340, 286, 32)),
+      region('calota-2', circle(340, 286, 12)),
+    ],
+    ink: `${rungs(252, 192, 156, 100, 8, 0.28, 0.8, 6)}
+      <circle class="ink-fill" cx="99" cy="54" r="3.5"/><circle class="ink-fill" cx="112" cy="54" r="3.5"/>
+      <path d="M102 62 Q105.5 66 109 62"/><path d="M46 72 Q30 66 36 50"/>
+      <path d="M326 232 H346"/><path d="M20 368 H70 M130 368 H180 M240 368 H290 M350 368 H390"/>`,
+  },
+  {
+    id: 'patrola',
+    label: 'Patrola',
+    regions: [
+      background('ceu'),
+      region('sol', circle(60, 56, 28)),
+      region('nuvem', cloud(250, 90, 0.75)),
+      region('chao', rect(-10, 318, 420, 100)),
+      region('escapamento', rect(38, 148, 20, 52, 4)),
+      region('motor', rect(20, 192, 96, 74, 10)),
+      region('grade', rect(32, 206, 44, 40, 6)),
+      region('cabine', rect(104, 112, 84, 150, 10)),
+      region('janela', rect(118, 126, 56, 56, 6)),
+      region('luz', path('M134 114 Q134 92 146 92 Q158 92 158 114 Z')),
+      region('chassi', path('M176 180 L340 180 Q362 180 362 202 L362 270 L336 270 L336 214 L176 214 Z')),
+      region('parachoque', rect(352, 162, 38, 60, 8)),
+      region('farol', circle(371, 182, 10)),
+      region('lamina', path('M206 302 Q196 274 214 250 L300 250 Q284 276 296 302 Z')),
+      region('roda-1', circle(56, 288, 30)),
+      region('calota-1', circle(56, 288, 11)),
+      region('roda-2', circle(124, 288, 30)),
+      region('calota-2', circle(124, 288, 11)),
+      region('roda-3', circle(349, 288, 30)),
+      region('calota-3', circle(349, 288, 11)),
+    ],
+    ink: `<path d="M226 214 L232 250 M280 214 L274 250"/><path d="M40 214 H68 M40 226 H68 M40 238 H68"/>
+      <path d="M20 368 H70 M130 368 H180 M240 368 H290 M350 368 H390"/>`,
+  },
+  {
+    id: 'policia',
+    label: 'Carro de polícia',
+    regions: [
+      background('ceu'),
+      region('sol', circle(362, 40, 24)),
+      region('nuvem', cloud(212, 100, 0.55)),
+      region('predio-1', rect(10, 100, 86, 230)),
+      region('predio-2', rect(104, 60, 96, 270)),
+      region('predio-3', rect(208, 124, 84, 206)),
+      region('predio-4', rect(300, 88, 90, 242)),
+      region('estrada', rect(-10, 318, 420, 100)),
+      region('cabine', path('M112 196 Q128 136 196 132 L250 132 Q290 136 308 196 Z')),
+      region('janela-1', path('M136 192 Q148 152 194 150 L204 150 L204 192 Z')),
+      region('janela-2', path('M220 150 L248 150 Q278 154 290 192 L220 192 Z')),
+      region('luz-1', path('M180 116 Q180 92 200 92 L212 92 L212 116 Z')),
+      region('luz-2', path('M212 116 L212 92 L224 92 Q244 92 244 116 Z')),
+      region('base', rect(172, 114, 80, 20, 6)),
+      region('corpo', rect(40, 188, 320, 86, 36)),
+      region('faixa', rect(40, 224, 320, 20)),
+      region('estrela', star(212, 234, 24, 11)),
+      region('farol', circle(344, 210, 11)),
+      region('roda-1', circle(110, 278, 36)),
+      region('calota-1', circle(110, 278, 15)),
+      region('roda-2', circle(290, 278, 36)),
+      region('calota-2', circle(290, 278, 15)),
+    ],
+    ink: `${windowGrid(22, 116, 2, 2, 24, 24, 12, 12)}${windowGrid(118, 72, 2, 2, 24, 22, 14, 10)}
+      ${windowGrid(316, 104, 2, 2, 24, 24, 12, 12)}
+      <path d="M20 368 H70 M130 368 H180 M240 368 H290 M350 368 H390"/>`,
+  },
+  {
+    id: 'betoneira',
+    label: 'Betoneira',
+    regions: [
+      background('ceu'),
+      region('sol', circle(345, 60, 28)),
+      region('nuvem', cloud(160, 82, 0.65)),
+      region('estrada', rect(-10, 316, 420, 100)),
+      region('calha', bar(56, 160, 18, 214, 22)),
+      region('funil', path('M22 92 L82 92 L64 132 L42 132 Z')),
+      region('suporte', rect(66, 170, 32, 72, 4)),
+      region('chassi', rect(30, 234, 278, 32, 6)),
+      ...DRUM_CUTS.slice(0, -1).map((s, i) => region(`tambor-${i + 1}`, drumBand(175, 168, 125, 64, 14, s, DRUM_CUTS[i + 1]))),
+      region('cabine', path('M300 150 L346 150 Q358 150 364 160 L390 210 L390 278 L300 278 Z')),
+      region('janela', path('M314 164 L344 164 L370 210 L314 210 Z')),
+      region('farol', circle(378, 234, 10)),
+      region('parachoque', rect(372, 256, 24, 22, 6)),
+      region('roda-1', circle(80, 284, 32)),
+      region('calota-1', circle(80, 284, 12)),
+      region('roda-2', circle(160, 284, 32)),
+      region('calota-2', circle(160, 284, 12)),
+      region('roda-3', circle(330, 284, 32)),
+      region('calota-3', circle(330, 284, 12)),
+    ],
+    ink: `<path d="M318 226 H340"/><path d="M20 366 H70 M130 366 H180 M240 366 H290 M350 366 H390"/>`,
+  },
+  {
+    id: 'ambulancia',
+    label: 'Ambulância',
+    regions: [
+      background('ceu'),
+      region('sol', circle(60, 56, 28)),
+      region('nuvem-1', cloud(250, 76, 0.7)),
+      region('nuvem-2', cloud(120, 64, 0.5)),
+      region('estrada', rect(-10, 316, 420, 100)),
+      region('luz-1', path('M40 122 Q40 98 60 98 Q80 98 80 122 Z')),
+      region('luz-2', path('M222 122 Q222 98 242 98 Q262 98 262 122 Z')),
+      region('corpo', rect(24, 120, 252, 160, 14)),
+      region('cabine', path('M272 152 L330 152 Q342 152 350 162 L386 212 L386 280 L272 280 Z')),
+      region('janela-cabine', path('M286 166 L326 166 L362 214 L286 214 Z')),
+      region('janela-tras', rect(40, 140, 56, 44, 8)),
+      region('cruz', path('M158 140 H186 V164 H210 V192 H186 V216 H158 V192 H134 V164 H158 Z')),
+      region('faixa', rect(24, 234, 362, 20)),
+      region('lanterna', rect(24, 196, 16, 26, 5)),
+      region('farol', circle(372, 226, 11)),
+      region('parachoque', rect(372, 254, 24, 24, 6)),
+      region('roda-1', circle(92, 282, 34)),
+      region('calota-1', circle(92, 282, 14)),
+      region('roda-2', circle(322, 282, 34)),
+      region('calota-2', circle(322, 282, 14)),
+    ],
+    ink: `<path d="M298 224 H318"/><path d="M20 366 H70 M130 366 H180 M240 366 H290 M350 366 H390"/>`,
+  },
+  {
+    id: 'moto',
+    label: 'Moto',
+    regions: [
+      background('ceu'),
+      region('sol', circle(340, 60, 30)),
+      region('nuvem', cloud(30, 90, 0.8)),
+      region('colina', path('M-10 270 Q100 220 210 260 T410 250 L410 330 L-10 330 Z')),
+      region('estrada', rect(-10, 320, 420, 100)),
+      region('roda-1', circle(100, 268, 52)),
+      region('aro-1', circle(100, 268, 28)),
+      region('roda-2', circle(306, 268, 52)),
+      region('aro-2', circle(306, 268, 28)),
+      region('para-lama-1', ringArc(100, 268, 76, 56, 190, 300)),
+      region('para-lama-2', ringArc(306, 268, 76, 56, 220, 320)),
+      region('quadro', bar(100, 268, 180, 240, 20)),
+      region('motor', rect(162, 196, 92, 64, 12)),
+      region('escapamento', bar(244, 262, 138, 290, 18)),
+      region('banco', path('M86 186 Q86 168 112 168 L194 170 Q204 182 196 194 L100 198 Q86 198 86 186 Z')),
+      region('lanterna', circle(78, 190, 11)),
+      region('tanque', path('M184 178 Q196 146 248 150 Q276 154 272 182 Q240 196 190 194 Z')),
+      region('garfo', bar(306, 268, 276, 160, 22)),
+      region('guidao', bar(270, 150, 236, 120, 18)),
+      region('farol', path('M290 148 Q326 148 326 174 Q326 200 290 200 Z')),
+    ],
+    ink: `<path d="M20 370 H70 M130 370 H180 M240 370 H290 M350 370 H390"/>
+      <circle class="ink-fill" cx="100" cy="268" r="6"/><circle class="ink-fill" cx="306" cy="268" r="6"/>`,
+  },
+  {
+    id: 'guindaste',
+    label: 'Guindaste',
+    regions: [
+      background('ceu'),
+      region('sol', circle(50, 50, 28)),
+      region('nuvem', cloud(150, 92, 0.7)),
+      region('chao', rect(-10, 318, 420, 100)),
+      region('patolas', path('M92 262 H118 V306 H128 V322 H82 V306 H92 Z M252 262 H278 V306 H288 V322 H242 V306 H252 Z')),
+      region('corpo', rect(68, 226, 220, 46, 8)),
+      region('cabine', path('M74 194 L38 194 Q28 194 24 204 L10 236 L10 272 L74 272 Z')),
+      region('janela', path('M62 206 L40 206 L26 236 L62 236 Z')),
+      region('farol', circle(22, 254, 10)),
+      region('lanca-1', bar(226, 204, 296, 140, 30)),
+      region('lanca-2', bar(288, 146, 352, 86, 22)),
+      region('base', rect(150, 204, 104, 24, 6)),
+      region('cabine-guindaste', rect(158, 150, 60, 56, 8)),
+      region('janela-guindaste', rect(170, 162, 36, 28, 5)),
+      region('gancho', rect(340, 164, 24, 28, 5)),
+      region('caixa', rect(306, 214, 90, 56, 6)),
+      region('roda-1', circle(48, 288, 30)),
+      region('calota-1', circle(48, 288, 11)),
+      region('roda-2', circle(190, 288, 30)),
+      region('calota-2', circle(190, 288, 11)),
+    ],
+    ink: `<path d="M352 86 V164"/><path d="M352 192 V200 M352 200 L314 214 M352 200 L388 214"/>
+      <path d="M336 214 V270 M366 214 V270"/>`,
+  },
+  {
+    id: 'trator-carreta',
+    label: 'Trator com carreta',
+    regions: [
+      background('ceu'),
+      region('sol', circle(60, 54, 28)),
+      region('nuvem-1', cloud(150, 84, 0.7)),
+      region('nuvem-2', cloud(300, 70, 0.6)),
+      region('campo', rect(-10, 312, 420, 100)),
+      region('abobora-1', ellipse(56, 186, 30, 24)),
+      region('abobora-3', ellipse(172, 188, 28, 22)),
+      region('abobora-2', ellipse(116, 178, 32, 26)),
+      region('cacamba', rect(18, 200, 196, 64, 8)),
+      region('roda-carreta', circle(112, 282, 30)),
+      region('calota-carreta', circle(112, 282, 12)),
+      region('escapamento', rect(342, 144, 20, 58, 4)),
+      region('capo', rect(296, 196, 90, 58, 12)),
+      region('cabine', rect(236, 128, 74, 118, 10)),
+      region('janela', rect(250, 142, 46, 52, 6)),
+      region('teto', rect(228, 116, 90, 20, 6)),
+      region('farol', circle(372, 218, 10)),
+      region('roda-grande', circle(272, 268, 48)),
+      region('calota-grande', circle(272, 268, 20)),
+      region('roda-pequena', circle(364, 286, 28)),
+      region('calota-pequena', circle(364, 286, 10)),
+    ],
+    ink: `<path d="M56 162 Q58 152 66 150 M116 152 Q118 142 126 140 M172 166 Q174 156 182 154"/>
+      <path d="M214 250 H236" stroke-width="8"/><path d="M316 214 H366 M316 232 H366"/>`,
+  },
+  {
+    id: 'caminhonete',
+    label: 'Caminhonete com caçamba',
+    regions: [
+      background('ceu'),
+      region('sol', circle(50, 50, 26)),
+      region('nuvem', cloud(170, 80, 0.7)),
+      region('tronco', rect(348, 120, 22, 90, 4)),
+      region('copa', circle(359, 110, 36)),
+      region('estrada', rect(-10, 316, 420, 100)),
+      region('caixa-1', rect(38, 138, 58, 54, 4)),
+      region('caixa-2', rect(100, 150, 52, 42, 4)),
+      region('cabine', path('M166 200 L178 140 Q181 128 194 128 L262 128 Q276 128 284 138 L318 200 Z')),
+      region('janela-1', path('M190 194 L198 148 Q199 144 204 144 L228 144 L228 194 Z')),
+      region('janela-2', path('M242 144 L264 144 Q270 144 274 150 L298 194 L242 194 Z')),
+      region('corpo', path('M160 196 L304 196 L364 204 Q378 206 378 220 L378 262 Q378 274 366 274 L160 274 Z')),
+      region('cacamba', rect(24, 186, 150, 88, 10)),
+      region('farol', circle(366, 222, 10)),
+      region('lanterna', rect(24, 200, 16, 26, 5)),
+      region('parachoque', rect(370, 254, 24, 22, 6)),
+      region('roda-1', circle(88, 280, 36)),
+      region('calota-1', circle(88, 280, 15)),
+      region('roda-2', circle(300, 280, 36)),
+      region('calota-2', circle(300, 280, 15)),
+    ],
+    ink: `<path d="M38 156 H96 M67 138 V156"/><path d="M234 200 V262 M246 212 H266"/>
+      <path d="M20 366 H70 M130 366 H180 M240 366 H290 M350 366 H390"/>`,
+  },
+  {
+    id: 'lixo',
+    label: 'Caminhão de lixo',
+    regions: [
+      background('ceu'),
+      region('sol', circle(345, 52, 28)),
+      region('nuvem-1', cloud(30, 86, 0.75)),
+      region('nuvem-2', cloud(180, 70, 0.55)),
+      region('estrada', rect(-10, 316, 420, 100)),
+      region('lixeira', rect(10, 246, 44, 70, 6)),
+      region('tampa', rect(6, 232, 52, 18, 6)),
+      region('cacamba', rect(108, 130, 186, 140, 14)),
+      region('traseira', path('M112 134 L80 150 Q70 156 70 170 L70 264 Q70 272 78 272 L112 272 Z')),
+      region('boca', path('M76 214 L106 214 L106 252 L76 252 Z')),
+      region('faixa', rect(108, 228, 186, 18)),
+      region('triangulo', path('M201 150 L237 208 L165 208 Z')),
+      region('luz', path('M308 168 Q308 146 324 146 Q340 146 340 168 Z')),
+      region('cabine', path('M290 166 L336 166 Q348 166 354 176 L390 222 L390 272 L290 272 Z')),
+      region('janela', path('M304 180 L334 180 L366 222 L304 222 Z')),
+      region('farol', circle(378, 240, 10)),
+      region('parachoque', rect(376, 254, 22, 22, 6)),
+      region('roda-1', circle(144, 284, 32)),
+      region('calota-1', circle(144, 284, 12)),
+      region('roda-2', circle(334, 284, 32)),
+      region('calota-2', circle(334, 284, 12)),
+    ],
+    ink: `<path d="M201 170 L221 202 L181 202 Z"/><path d="M22 260 V300 M42 260 V300"/>
+      <path d="M20 366 H70 M130 366 H180 M240 366 H290 M350 366 H390"/>`,
   },
 ];

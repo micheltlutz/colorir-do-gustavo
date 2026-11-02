@@ -153,36 +153,38 @@ body {
   white-space: nowrap;
 }
 
+/* A galeria rola para baixo (só ela: o resto da página não se mexe). */
 .gallery-body {
   flex: 1;
   min-height: 0;
-  display: grid;
-  place-items: center;
-  container-type: size;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
   /* Folga para as estrelas que saem um pouco do cartão. */
-  padding: 10px;
+  padding: 10px 10px 28px;
 }
 
-/* 6x4 deitado, 4x6 em pé: sempre cabe sem rolar. */
+/* 6 colunas deitado, 4 em pé. */
 .gallery-grid {
   display: grid;
   grid-template-columns: repeat(6, 1fr);
-  gap: 2cqmin;
-  width: min(100cqw, 100cqh * 6 / 4);
-  aspect-ratio: 6 / 4;
+  gap: clamp(12px, 2vmin, 22px);
+  max-width: 1120px;
+  margin: 0 auto;
 }
 
 @media (orientation: portrait) {
   .gallery-grid {
     grid-template-columns: repeat(4, 1fr);
-    width: min(100cqw, 100cqh * 4 / 6);
-    aspect-ratio: 4 / 6;
   }
 }
 
 .card {
   appearance: none;
   position: relative;
+  aspect-ratio: 1;
   border: 0;
   padding: 0;
   border-radius: 18%;

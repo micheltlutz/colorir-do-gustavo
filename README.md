@@ -18,7 +18,7 @@ Bom saber:
 
 ## Como se joga
 
-- **Galeria:** 24 desenhos. Os 12 primeiros são mais simples (carro, caminhão, trator, ônibus, avião, foguete, barco, trem, peixe, dinossauro, casa e borboleta); os outros 12 têm mais partes para pintar (caminhão de bombeiros, helicóptero, escavadeira, submarino, balão, arco-íris, castelo, cachorro, leão, polvo, robô e bolo de aniversário). Os pintados aparecem coloridos; os completos ganham uma estrela.
+- **Galeria:** 34 desenhos; a galeria rola para baixo. Os 12 primeiros são mais simples (carro, caminhão, trator, ônibus, avião, foguete, barco, trem, peixe, dinossauro, casa e borboleta). Os outros têm mais partes para pintar: caminhão de bombeiros, helicóptero, escavadeira, submarino, balão, arco-íris, castelo, cachorro, leão, polvo, robô e bolo de aniversário, e os veículos que o Gustavo pediu (bombeiro salvando o gatinho, patrola, carro de polícia, betoneira, ambulância, moto, guindaste, trator com carreta, caminhonete e caminhão de lixo). Os pintados aparecem coloridos; os completos ganham uma estrela.
 - **Pintar:** escolha uma cor na paleta e toque numa parte do desenho. São 12 cores, cada uma em 3 tons (claro, médio e escuro), e cada tom toca uma nota. A borda da folha mostra a cor escolhida. O branco funciona como borracha.
 - **Botões:** voltar à galeria, desfazer e apagar tudo (pede confirmação com um ✓ e também pode ser desfeito).
 - Pintar todas as partes de um desenho vira festa: confete, música e estrela.

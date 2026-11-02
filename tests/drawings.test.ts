@@ -4,8 +4,8 @@ import { PALETTE } from '../src/paint/palette.ts';
 import { BLANK } from '../src/paint/state.ts';
 
 describe('desenhos', () => {
-  it('são 24, com nomes únicos', () => {
-    expect(DRAWINGS).toHaveLength(24);
+  it('são 34, com nomes únicos', () => {
+    expect(DRAWINGS).toHaveLength(34);
     const ids = DRAWINGS.map((d) => d.id);
     expect(new Set(ids).size).toBe(ids.length);
   });
