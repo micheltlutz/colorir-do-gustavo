@@ -2,7 +2,7 @@
 
 import { sfx } from '../audio/sfx.ts';
 import { DRAWINGS, type Drawing } from '../paint/drawings.ts';
-import { PALETTE, type Swatch } from '../paint/palette.ts';
+import { BRIGHT_COLORS, DEFAULT_SWATCH, PALETTE, type Swatch } from '../paint/palette.ts';
 import { clearAll, initialState, isComplete, paint, undo, type PaintState } from '../paint/state.ts';
 import { store } from '../storage.ts';
 import { clearConfetti, confetti } from './confetti.ts';
@@ -34,10 +34,9 @@ function onTap<T extends HTMLElement>(button: T, action: () => void, sound = tru
 
 /** "Colorir do Gustavo" com cada letra de uma cor. */
 function rainbowTitle(text: string): string {
-  const colors = PALETTE.filter((s) => !['#FFFFFF', '#9E9E9E', '#263238', '#FFCC80'].includes(s.color));
   let k = 0;
   return [...text]
-    .map((ch) => (ch === ' ' ? ' ' : `<span style="color:${colors[k++ % colors.length].color}">${ch}</span>`))
+    .map((ch) => (ch === ' ' ? ' ' : `<span style="color:${BRIGHT_COLORS[k++ % BRIGHT_COLORS.length]}">${ch}</span>`))
     .join('');
 }
 
@@ -108,7 +107,7 @@ export class PaintScreen {
   private drawing: Drawing = DRAWINGS[0];
   private view: DrawingView | null = null;
   private state: PaintState = initialState();
-  private swatch: Swatch = PALETTE[0];
+  private swatch: Swatch = DEFAULT_SWATCH;
   private confirmTimer = 0;
 
   constructor(nav: Nav) {

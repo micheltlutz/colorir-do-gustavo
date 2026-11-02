@@ -51,6 +51,139 @@ const petals = (cx: number, cy: number): Shape =>
     [cx - 17, cy, 13],
   ]);
 
+type Pt = readonly [number, number];
+const r1 = (n: number) => Math.round(n * 10) / 10;
+const xy = (x: number, y: number) => `${r1(x)} ${r1(y)}`;
+
+/** Nuvem fofinha. (x, y) é o canto de baixo à esquerda; no tamanho 1 ela mede 130 x 63. */
+const CLOUD: Pt[] = [
+  [0, -8], [0, -33], [25, -30], [35, -56], [65, -48], [85, -63], [105, -43],
+  [130, -43], [128, -20], [130, 0], [105, 0], [20, 0], [0, 0], [0, -8],
+];
+function cloud(x: number, y: number, s = 1): Shape {
+  const p = CLOUD.map(([dx, dy]) => xy(x + dx * s, y + dy * s));
+  return path(
+    `M${p[0]} Q${p[1]} ${p[2]} Q${p[3]} ${p[4]} Q${p[5]} ${p[6]} Q${p[7]} ${p[8]} Q${p[9]} ${p[10]} L${p[11]} Q${p[12]} ${p[13]} Z`,
+  );
+}
+
+/**
+ * Faixa que segue uma curva (de p0 a p3) e afina de w0 para w1, com as pontas
+ * redondas. Serve para rabos, tentáculos e braços.
+ */
+function tube(p0: Pt, p1: Pt, p2: Pt, p3: Pt, w0: number, w1: number): Shape {
+  const N = 24;
+  const left: string[] = [];
+  const right: string[] = [];
+  for (let i = 0; i <= N; i++) {
+    const t = i / N;
+    const u = 1 - t;
+    const at = (k: 0 | 1) => u * u * u * p0[k] + 3 * u * u * t * p1[k] + 3 * u * t * t * p2[k] + t * t * t * p3[k];
+    const d = (k: 0 | 1) => 3 * u * u * (p1[k] - p0[k]) + 6 * u * t * (p2[k] - p1[k]) + 3 * t * t * (p3[k] - p2[k]);
+    const len = Math.hypot(d(0), d(1)) || 1;
+    const half = (w0 + (w1 - w0) * t) / 2;
+    const nx = (-d(1) / len) * half;
+    const ny = (d(0) / len) * half;
+    left.push(xy(at(0) + nx, at(1) + ny));
+    right.push(xy(at(0) - nx, at(1) - ny));
+  }
+  right.reverse();
+  const a0 = r1(w0 / 2);
+  const a1 = r1(w1 / 2);
+  return path(`M${left.join(' L')} A${a1} ${a1} 0 0 0 ${right.join(' L')} A${a0} ${a0} 0 0 0 ${left[0]} Z`);
+}
+
+/** Barra reta com as pontas redondas. */
+const bar = (x1: number, y1: number, x2: number, y2: number, w: number): Shape =>
+  tube([x1, y1], [x1 + (x2 - x1) / 3, y1 + (y2 - y1) / 3], [x1 + ((x2 - x1) * 2) / 3, y1 + ((y2 - y1) * 2) / 3], [x2, y2], w, w);
+
+/** Estrela de n pontas. */
+function star(cx: number, cy: number, outer: number, inner: number, n = 5): Shape {
+  const pts: string[] = [];
+  for (let i = 0; i < 2 * n; i++) {
+    const a = -Math.PI / 2 + (i * Math.PI) / n;
+    const r = i % 2 ? inner : outer;
+    pts.push(xy(cx + r * Math.cos(a), cy + r * Math.sin(a)));
+  }
+  return path(`M${pts.join(' L')} Z`);
+}
+
+/** Faixa de arco-íris: meia-coroa entre os raios r e R, com o centro em (cx, cy). */
+const arcBand = (cx: number, cy: number, R: number, r: number): Shape =>
+  path(`M${cx - R} ${cy} A${R} ${R} 0 0 1 ${cx + R} ${cy} L${cx + r} ${cy} A${r} ${r} 0 0 0 ${cx - r} ${cy} Z`);
+
+/** Gomo do balão entre as linhas a e b (de -1, à esquerda, até 1, à direita). */
+function gore(a: number, b: number): Shape {
+  const x = (t: number, k: number) => r1(200 + k * t);
+  return path(
+    `M200 28 C${x(a, 140)} 28 ${x(a, 140)} 215 ${x(a, 35)} 245 L${x(b, 35)} 245 ` +
+      `C${x(b, 140)} 215 ${x(b, 140)} 28 200 28 Z`,
+  );
+}
+
+/** Cobertura de bolo: começa no topo (com cantos redondos) e escorre em gotas até `band`. */
+function frosting(x1: number, x2: number, top: number, band: number, depth: number, n: number): Shape {
+  const rad = 14;
+  let d = `M${x1} ${band} V${top + rad} Q${x1} ${top} ${x1 + rad} ${top} H${x2 - rad} Q${x2} ${top} ${x2} ${top + rad} V${band}`;
+  const w = (x2 - x1) / n;
+  for (let i = 0; i < n; i++) {
+    const xa = x2 - i * w;
+    const deep = i % 2 === 0 ? depth : depth * 0.55;
+    d += ` Q${xy(xa - w / 2, band + deep * 2)} ${xy(xa - w, band)}`;
+  }
+  return path(`${d} Z`);
+}
+
+/** Osso deitado, com o centro em (cx, cy). */
+function bone(cx: number, cy: number, len: number, h: number): Shape {
+  const knob = (s: 1 | -1) => {
+    const x = (dx: number) => cx + s * (len + dx);
+    const y = (dy: number) => cy + s * dy;
+    return (
+      `L${xy(x(0), y(-h))} Q${xy(x(2), y(-h - 18))} ${xy(x(14), y(-h - 14))} ` +
+      `Q${xy(x(26), y(-h - 8))} ${xy(x(16), y(0))} Q${xy(x(26), y(h + 8))} ${xy(x(14), y(h + 14))} ` +
+      `Q${xy(x(2), y(h + 18))} ${xy(x(0), y(h))}`
+    );
+  };
+  return path(`M${xy(cx - len, cy - h)} ${knob(1)} ${knob(-1)} Z`);
+}
+
+/** Muralha com ameias em cima (n pedaços, um sim um não, começando e terminando em cima). */
+function battlement(x1: number, x2: number, top: number, depth: number, bottom: number, n: number): Shape {
+  const w = (x2 - x1) / n;
+  let d = `M${x1} ${bottom} V${top}`;
+  for (let i = 0; i < n; i++) {
+    const x = r1(x1 + (i + 1) * w);
+    const up = i % 2 === 0;
+    d += ` H${x}`;
+    if (i < n - 1) d += ` V${up ? top + depth : top}`;
+  }
+  return path(`${d} V${bottom} Z`);
+}
+
+/** Bandeirinha de festa pendurada no varal (que vai de (-10, 18) até (410, 18), caindo até 70 no meio). */
+function bunting(cx: number): Shape {
+  const y = (x: number) => {
+    const t = (x + 10) / 420;
+    return 18 + 104 * t * (1 - t);
+  };
+  return path(`M${xy(cx - 28, y(cx - 28))} L${xy(cx + 28, y(cx + 28))} L${xy(cx, y(cx) + 48)} Z`);
+}
+
+/** Chama de vela com a base em (cx, base). */
+const flame = (cx: number, base: number) =>
+  `M${cx} ${base} Q${cx - 14} ${base - 12} ${cx - 6} ${base - 24} Q${cx - 2} ${base - 30} ${cx} ${base - 36} ` +
+  `Q${cx + 2} ${base - 30} ${cx + 6} ${base - 24} Q${cx + 14} ${base - 12} ${cx} ${base} Z`;
+
+/** Juba do leão: 12 bolotas em volta da cabeça. */
+const MANE: [number, number, number][] = Array.from({ length: 12 }, (_, i) => {
+  const a = (i * Math.PI) / 6;
+  return [r1(230 + 70 * Math.cos(a)), r1(160 + 70 * Math.sin(a)), 28];
+});
+
+const BALLOON_LINES = [-1, -2 / 3, -1 / 3, 0, 1 / 3, 2 / 3, 1];
+const RAINBOW = [192, 170, 148, 126, 104, 82, 60];
+
 export const DRAWINGS: Drawing[] = [
   {
     id: 'carro',
@@ -348,5 +481,409 @@ export const DRAWINGS: Drawing[] = [
       <circle class="ink-fill" cx="168" cy="92" r="6"/><circle class="ink-fill" cx="232" cy="92" r="6"/>
       <circle class="ink-fill" cx="194" cy="143" r="3"/><circle class="ink-fill" cx="206" cy="143" r="3"/>
       <path d="M70 316 V338 M330 316 V338"/>`,
+  },
+
+  // ---------- desenhos com mais partes ----------
+
+  {
+    id: 'bombeiros',
+    label: 'Caminhão de bombeiros',
+    regions: [
+      background('ceu'),
+      region('sol', circle(345, 58, 30)),
+      region('nuvem', cloud(30, 100, 0.9)),
+      region('estrada', rect(-10, 318, 420, 100)),
+      region('suporte', rect(188, 136, 42, 42, 4)),
+      region('corpo', rect(30, 172, 240, 102, 10)),
+      region('escada', rect(45, 114, 205, 26, 8)),
+      region('sirene', path('M284 140 Q284 112 304 112 Q324 112 324 140 Z')),
+      region('cabine', path('M268 138 L320 138 Q332 138 340 148 L380 205 L380 274 L268 274 Z')),
+      region('janela', path('M284 154 L316 154 L352 205 L284 205 Z')),
+      region('porta-1', rect(46, 188, 62, 54, 6)),
+      region('porta-2', rect(120, 188, 62, 54, 6)),
+      region('mangueira', circle(228, 214, 30)),
+      region('mangueira-miolo', circle(228, 214, 11)),
+      region('faixa', rect(30, 248, 240, 18)),
+      region('parachoque', rect(364, 252, 26, 24, 6)),
+      region('farol', circle(368, 224, 10)),
+      region('roda-1', circle(88, 282, 34)),
+      region('calota-1', circle(88, 282, 13)),
+      region('roda-2', circle(205, 282, 34)),
+      region('calota-2', circle(205, 282, 13)),
+      region('roda-3', circle(325, 282, 34)),
+      region('calota-3', circle(325, 282, 13)),
+    ],
+    ink: `<path d="M75 119 V135 M105 119 V135 M135 119 V135 M165 119 V135 M195 119 V135 M225 119 V135"/>
+      <path d="M290 222 H312"/><path d="M20 368 H70 M130 368 H180 M240 368 H290 M350 368 H390"/>`,
+  },
+  {
+    id: 'helicoptero',
+    label: 'Helicóptero',
+    regions: [
+      background('ceu'),
+      region('sol', circle(55, 55, 28)),
+      region('nuvem-1', cloud(270, 80, 0.8)),
+      region('nuvem-2', cloud(14, 280, 0.7)),
+      region('colina', path('M-10 300 Q110 255 230 290 T410 280 L410 410 L-10 410 Z')),
+      region('heliponto', ellipse(235, 345, 150, 36)),
+      region('cauda', path('M165 186 L42 166 Q28 166 28 180 Q28 194 42 196 L165 228 Z')),
+      region('aleta', path('M40 178 L26 124 Q26 114 36 116 L68 170 Z')),
+      region('rotor-cauda', circle(40, 182, 18)),
+      region('mastro', rect(218, 104, 34, 52, 6)),
+      region('corpo', ellipse(240, 208, 100, 60)),
+      region('janela', path('M268 160 Q326 164 336 206 L268 206 Z')),
+      region('porta', rect(182, 172, 64, 82, 12)),
+      region('janela-porta', rect(192, 182, 44, 32, 8)),
+      region('esqui', rect(140, 298, 210, 16, 8)),
+      region('helice', rect(85, 90, 300, 22, 11)),
+      region('cubo', circle(235, 101, 15)),
+    ],
+    ink: `<path d="M200 264 L190 298 M290 264 L302 298" stroke-width="7"/>
+      <path d="M40 168 V196 M26 182 H54"/>
+      <path d="M215 328 V364 M255 328 V364 M215 346 H255"/>
+      <path d="M120 60 Q130 50 140 60 Q150 50 160 60 M170 80 Q178 72 186 80 Q194 72 202 80"/>`,
+  },
+  {
+    id: 'escavadeira',
+    label: 'Escavadeira',
+    regions: [
+      background('ceu'),
+      region('sol', circle(340, 58, 30)),
+      region('nuvem', cloud(30, 100, 0.85)),
+      region('chao', rect(-10, 322, 420, 100)),
+      region('monte', path('M250 326 Q300 236 410 250 L410 330 Z')),
+      region(
+        'pedras',
+        dots([
+          [300, 305, 12],
+          [385, 290, 12],
+          [345, 312, 10],
+        ]),
+      ),
+      region('escapamento', rect(176, 158, 20, 52, 4)),
+      region('contrapeso', rect(26, 208, 44, 56, 14)),
+      region('corpo', rect(50, 204, 175, 64, 10)),
+      region('faixa', rect(50, 238, 175, 18)),
+      region('cabine', rect(68, 128, 88, 82, 10)),
+      region('janela', rect(84, 142, 56, 46, 6)),
+      region('luz', path('M100 130 Q100 106 112 106 Q124 106 124 130 Z')),
+      region('esteira', rect(36, 270, 210, 54, 27)),
+      region(
+        'rodinhas',
+        dots([
+          [66, 297, 15],
+          [114, 297, 15],
+          [162, 297, 15],
+          [212, 297, 15],
+        ]),
+      ),
+      region('braco', bar(200, 222, 292, 118, 32)),
+      region('haste', bar(292, 118, 338, 222, 26)),
+      region('pa', path('M316 216 L368 214 Q378 262 342 286 L320 272 Z')),
+    ],
+    ink: `<circle class="ink-fill" cx="292" cy="118" r="7"/><circle class="ink-fill" cx="338" cy="222" r="6"/>
+      <circle class="ink-fill" cx="200" cy="222" r="6"/>`,
+  },
+  {
+    id: 'submarino',
+    label: 'Submarino',
+    regions: [
+      background('agua'),
+      region('areia', path('M-10 352 Q90 330 190 350 T410 346 L410 410 L-10 410 Z')),
+      region('alga-1', path('M14 362 Q0 330 16 306 Q30 284 18 262 Q44 286 38 308 Q30 332 42 362 Z')),
+      region('alga-2', path('M350 362 Q370 318 352 288 Q336 258 356 226 Q374 262 374 288 Q388 318 376 362 Z')),
+      region('pedra', ellipse(118, 360, 42, 22)),
+      region('estrela', star(262, 368, 28, 13)),
+      region(
+        'bolhas',
+        dots([
+          [24, 135, 9],
+          [42, 108, 12],
+          [24, 80, 8],
+        ]),
+      ),
+      region('agua-viva', path('M296 104 Q296 56 338 56 Q380 56 380 104 Q359 96 338 104 Q317 96 296 104 Z')),
+      region('peixe-1-rabo', path('M140 88 L166 70 L166 106 Z')),
+      region('peixe-1', ellipse(112, 88, 32, 20)),
+      region('peixe-2-rabo', path('M300 302 L326 284 L326 320 Z')),
+      region('peixe-2', ellipse(272, 302, 32, 20)),
+      region('periscopio', path('M206 118 V66 Q206 58 214 58 H252 V82 H228 V118 Z')),
+      region('torre', rect(168, 112, 76, 50, 12)),
+      region('leme', path('M92 188 L50 154 Q42 152 42 162 L42 258 Q42 268 50 266 L92 232 Z')),
+      region('helice', ellipse(40, 210, 14, 32)),
+      region('corpo', ellipse(205, 210, 128, 62)),
+      region('janela-1', circle(150, 206, 20)),
+      region('janela-2', circle(205, 206, 20)),
+      region('janela-3', circle(260, 206, 20)),
+    ],
+    ink: `<path d="M308 108 Q302 122 310 134 M328 108 Q322 126 330 142 M348 108 Q342 126 350 142 M368 108 Q362 122 370 134"/>
+      <circle class="ink-fill" cx="98" cy="84" r="5"/><circle class="ink-fill" cx="258" cy="298" r="5"/>`,
+  },
+  {
+    id: 'balao',
+    label: 'Balão',
+    regions: [
+      background('ceu'),
+      region('sol', circle(58, 60, 30)),
+      region('nuvem-1', cloud(292, 98, 0.75)),
+      region('nuvem-2', cloud(8, 214, 0.7)),
+      region('balao-pequeno', circle(350, 178, 22)),
+      region('montanha-1', path('M-10 345 L90 238 L190 345 Z')),
+      region('montanha-2', path('M150 345 L292 222 L420 345 Z')),
+      region('grama', path('M-10 338 Q100 318 200 338 T410 334 L410 410 L-10 410 Z')),
+      region('flor-1', petals(56, 372)),
+      region('miolo-1', circle(56, 372, 10)),
+      region('flor-2', petals(344, 374)),
+      region('miolo-2', circle(344, 374, 10)),
+      ...BALLOON_LINES.slice(0, -1).map((a, i) => region(`gomo-${i + 1}`, gore(a, BALLOON_LINES[i + 1]))),
+      region('cinta', rect(160, 243, 80, 18, 6)),
+      region('cesto', rect(170, 284, 60, 42, 8)),
+    ],
+    ink: `<path d="M170 261 L180 284 M230 261 L220 284 M200 261 V284"/><path d="M172 304 H228"/>
+      <path d="M340 198 L345 210 M360 198 L355 210"/><rect class="ink-fill" x="342" y="208" width="16" height="12" rx="3"/>
+      <path d="M118 120 Q128 110 138 120 Q148 110 158 120 M50 140 Q58 132 66 140 Q74 132 82 140"/>`,
+  },
+  {
+    id: 'arco-iris',
+    label: 'Arco-íris',
+    regions: [
+      background('ceu'),
+      region('sol', circle(350, 52, 30)),
+      region('nuvem-1', cloud(30, 78, 0.6)),
+      ...RAINBOW.slice(0, -1).map((R, i) => region(`arco-${i + 1}`, arcBand(200, 300, R, RAINBOW[i + 1]))),
+      region('grama', path('M-10 332 Q100 312 200 332 T410 328 L410 410 L-10 410 Z')),
+      region('nuvem-2', cloud(-8, 322, 1.2)),
+      region('nuvem-3', cloud(252, 322, 1.2)),
+      region('flor-1', petals(70, 370)),
+      region('miolo-1', circle(70, 370, 10)),
+      region('flor-2', petals(200, 368)),
+      region('miolo-2', circle(200, 368, 10)),
+      region('flor-3', petals(330, 370)),
+      region('miolo-3', circle(330, 370, 10)),
+    ],
+    ink: `<path d="M150 50 Q160 40 170 50 Q180 40 190 50 M220 72 Q228 64 236 72 Q244 64 252 72"/>`,
+  },
+  {
+    id: 'castelo',
+    label: 'Castelo',
+    regions: [
+      background('ceu'),
+      region('sol', circle(282, 42, 24)),
+      region('nuvem', cloud(6, 50, 0.5)),
+      region('grama', rect(-10, 328, 420, 100)),
+      region('caminho', path('M176 330 L224 330 L252 410 L148 410 Z')),
+      region('bandeira-meio', path('M202 12 Q219 6 236 14 L236 38 Q219 30 202 38 Z')),
+      region('torre-meio', rect(158, 120, 84, 110)),
+      region('telhado-meio', path('M148 122 L200 46 L252 122 Z')),
+      region('janela-meio', circle(200, 166, 18)),
+      region('muro', battlement(106, 294, 200, 20, 330, 9)),
+      region('porta', path('M172 330 V280 Q172 248 200 248 Q228 248 228 280 V330 Z')),
+      region('bandeira-1', path('M75 52 Q92 46 109 54 L109 78 Q92 70 75 78 Z')),
+      region('bandeira-2', path('M329 52 Q346 46 363 54 L363 78 Q346 70 329 78 Z')),
+      region('torre-1', rect(40, 170, 66, 160)),
+      region('torre-2', rect(294, 170, 66, 160)),
+      region('telhado-1', path('M30 172 L73 96 L116 172 Z')),
+      region('telhado-2', path('M284 172 L327 96 L370 172 Z')),
+      region('janela-1', path('M60 236 V213 Q60 200 73 200 Q86 200 86 213 V236 Z')),
+      region('janela-2', path('M60 298 V275 Q60 262 73 262 Q86 262 86 275 V298 Z')),
+      region('janela-3', path('M314 236 V213 Q314 200 327 200 Q340 200 340 213 V236 Z')),
+      region('janela-4', path('M314 298 V275 Q314 262 327 262 Q340 262 340 275 V298 Z')),
+      region('arbusto-1', cloud(-8, 334, 0.62)),
+      region('arbusto-2', cloud(327, 334, 0.62)),
+    ],
+    ink: `<path d="M73 96 V50 M327 96 V50 M200 46 V8"/><path d="M200 248 V330"/>`,
+  },
+  {
+    id: 'cachorro',
+    label: 'Cachorro',
+    regions: [
+      background('ceu'),
+      region('sol', circle(60, 56, 30)),
+      region('nuvem', cloud(150, 70, 0.7)),
+      region('grama', rect(-10, 318, 420, 100)),
+      region('casinha', rect(258, 190, 118, 130, 4)),
+      region('telhado', path('M242 198 L317 128 L392 198 Z')),
+      region('porta', path('M290 320 V268 Q290 242 317 242 Q344 242 344 268 V320 Z')),
+      region('rabo', tube([206, 292], [248, 296], [266, 262], [260, 222], 24, 16)),
+      region('corpo', ellipse(150, 270, 74, 62)),
+      region('peito', ellipse(150, 282, 40, 44)),
+      region('pata-1', ellipse(116, 328, 28, 17)),
+      region('pata-2', ellipse(184, 328, 28, 17)),
+      region('cabeca', ellipse(150, 140, 62, 54)),
+      region('orelha-1', path('M100 108 Q62 106 60 160 Q60 198 88 198 Q106 192 108 150 Z')),
+      region('orelha-2', path('M200 108 Q238 106 240 160 Q240 198 212 198 Q194 192 192 150 Z')),
+      region('focinho', ellipse(150, 166, 34, 24)),
+      region('coleira', rect(106, 196, 88, 24, 12)),
+      region('medalha', circle(150, 232, 13)),
+      region('bola', circle(46, 326, 24)),
+      region('osso', bone(330, 358, 30, 10)),
+    ],
+    ink: `<circle class="ink-fill" cx="128" cy="128" r="7"/><circle class="ink-fill" cx="172" cy="128" r="7"/>
+      <ellipse class="ink-fill" cx="150" cy="155" rx="12" ry="8"/><path d="M150 162 V172 M138 174 Q150 182 162 174"/>
+      <path d="M26 314 Q46 330 68 314"/><path d="M106 338 V345 M126 338 V345 M174 338 V345 M194 338 V345"/>`,
+  },
+  {
+    id: 'leao',
+    label: 'Leão',
+    regions: [
+      background('ceu'),
+      region('sol', circle(350, 52, 28)),
+      region('nuvem', cloud(150, 56, 0.55)),
+      region('chao', rect(-10, 316, 420, 100)),
+      region('tronco', path('M60 318 L64 206 L40 166 L52 160 L70 192 L90 158 L102 164 L82 208 L84 318 Z')),
+      region('copa', path('M8 156 Q16 112 70 116 Q124 106 134 148 Q104 166 72 158 Q32 168 8 156 Z')),
+      region('arbusto', cloud(92, 322, 0.6)),
+      region('rabo', tube([290, 300], [345, 312], [352, 280], [350, 252], 18, 12)),
+      region('tufo', circle(350, 240, 16)),
+      region('corpo', ellipse(235, 274, 72, 56)),
+      region('peito', ellipse(232, 288, 36, 34)),
+      region('pata-1', ellipse(198, 326, 25, 15)),
+      region('pata-2', ellipse(268, 326, 25, 15)),
+      region('juba-fora', dots(MANE)),
+      region('juba-dentro', circle(230, 160, 74)),
+      region('orelha-1', circle(186, 112, 18)),
+      region('orelha-2', circle(274, 112, 18)),
+      region('cabeca', circle(230, 166, 56)),
+      region(
+        'focinho',
+        dots([
+          [214, 190, 18],
+          [246, 190, 18],
+        ]),
+      ),
+    ],
+    ink: `<circle class="ink-fill" cx="210" cy="152" r="6"/><circle class="ink-fill" cx="250" cy="152" r="6"/>
+      <path class="ink-fill" d="M218 172 Q230 166 242 172 Q238 184 230 185 Q222 184 218 172 Z"/>
+      <path d="M222 206 Q230 212 238 206"/>
+      <circle class="ink-fill" cx="206" cy="192" r="2.5"/><circle class="ink-fill" cx="214" cy="200" r="2.5"/>
+      <circle class="ink-fill" cx="254" cy="192" r="2.5"/><circle class="ink-fill" cx="246" cy="200" r="2.5"/>`,
+  },
+  {
+    id: 'polvo',
+    label: 'Polvo',
+    regions: [
+      background('agua'),
+      region(
+        'bolhas',
+        dots([
+          [40, 120, 10],
+          [58, 90, 13],
+          [42, 58, 9],
+        ]),
+      ),
+      region('peixe-rabo', path('M352 84 L378 66 L378 102 Z')),
+      region('peixe', ellipse(326, 84, 30, 19)),
+      region('areia', path('M-10 348 Q100 328 200 348 T410 344 L410 410 L-10 410 Z')),
+      region('alga', path('M370 352 Q352 304 372 266 Q388 228 372 190 Q402 228 394 268 Q382 306 396 352 Z')),
+      region('pedra', ellipse(66, 352, 46, 24)),
+      region('concha', path('M140 388 L112 360 Q108 342 124 344 Q130 332 140 336 Q150 332 156 344 Q172 342 168 360 Z')),
+      region('estrela', star(300, 372, 26, 12)),
+      region('tentaculo-1', tube([150, 200], [100, 240], [40, 250], [58, 300], 34, 16)),
+      region('tentaculo-6', tube([250, 200], [300, 240], [360, 250], [342, 300], 34, 16)),
+      region('tentaculo-2', tube([168, 208], [150, 262], [104, 296], [128, 330], 34, 16)),
+      region('tentaculo-5', tube([232, 208], [250, 262], [296, 296], [272, 330], 34, 16)),
+      region('tentaculo-3', tube([188, 212], [190, 270], [164, 318], [186, 344], 34, 16)),
+      region('tentaculo-4', tube([212, 212], [210, 270], [236, 318], [214, 344], 34, 16)),
+      region('cabeca', ellipse(200, 140, 90, 82)),
+      region('olho-1', circle(168, 140, 22)),
+      region('olho-2', circle(232, 140, 22)),
+      region(
+        'bochechas',
+        dots([
+          [140, 182, 13],
+          [260, 182, 13],
+        ]),
+      ),
+    ],
+    ink: `<circle class="ink-fill" cx="172" cy="144" r="9"/><circle class="ink-fill" cx="236" cy="144" r="9"/>
+      <path d="M184 190 Q200 204 216 190"/><circle class="ink-fill" cx="312" cy="80" r="4"/>
+      <path d="M140 340 V380 M126 350 L136 380 M154 350 L144 380"/>`,
+  },
+  {
+    id: 'robo',
+    label: 'Robô',
+    regions: [
+      background('ceu'),
+      region('sol', circle(345, 58, 30)),
+      region('nuvem', cloud(24, 90, 0.75)),
+      region('chao', rect(-10, 350, 420, 70)),
+      region('antena', circle(200, 34, 15)),
+      region('perna-1', rect(148, 306, 36, 44)),
+      region('perna-2', rect(216, 306, 36, 44)),
+      region('pe-1', rect(130, 340, 64, 28, 12)),
+      region('pe-2', rect(206, 340, 64, 28, 12)),
+      region('braco-1', bar(124, 222, 82, 290, 28)),
+      region('mao-1', circle(76, 300, 21)),
+      region('braco-2', bar(276, 222, 324, 160, 28)),
+      region('mao-2', circle(332, 148, 21)),
+      region('pescoco', rect(178, 164, 44, 36, 6)),
+      region('orelha-1', rect(112, 96, 32, 52, 10)),
+      region('orelha-2', rect(256, 96, 32, 52, 10)),
+      region('cabeca', rect(134, 70, 132, 100, 22)),
+      region('olho-1', circle(172, 110, 20)),
+      region('olho-2', circle(228, 110, 20)),
+      region('boca', rect(162, 138, 76, 24, 8)),
+      region('corpo', rect(118, 196, 164, 116, 18)),
+      region('painel', rect(138, 214, 76, 56, 8)),
+      region('botao-1', circle(250, 230, 14)),
+      region('botao-2', circle(250, 266, 14)),
+      region(
+        'luzes',
+        dots([
+          [160, 292, 11],
+          [200, 292, 11],
+          [240, 292, 11],
+        ]),
+      ),
+    ],
+    ink: `<path d="M200 49 V70" stroke-width="7"/>
+      <circle class="ink-fill" cx="176" cy="112" r="8"/><circle class="ink-fill" cx="232" cy="112" r="8"/>
+      <path d="M181 138 V162 M200 138 V162 M219 138 V162"/>
+      <path d="M176 258 Q152 242 162 230 Q171 222 176 234 Q181 222 190 230 Q200 242 176 258 Z"/>`,
+  },
+  {
+    id: 'bolo',
+    label: 'Bolo de aniversário',
+    regions: [
+      background('parede'),
+      region('bandeirinha-1', bunting(40)),
+      region('bandeirinha-2', bunting(118)),
+      region('bandeirinha-3', bunting(282)),
+      region('bandeirinha-4', bunting(360)),
+      region('balao-1', ellipse(48, 178, 30, 38)),
+      region('balao-2', ellipse(352, 178, 30, 38)),
+      region('mesa', rect(-10, 336, 420, 100)),
+      region('prato', ellipse(200, 338, 148, 22)),
+      region('bolo-baixo', rect(78, 246, 244, 92, 14)),
+      region('cobertura-baixo', frosting(78, 322, 246, 268, 12, 8)),
+      region(
+        'confeitos',
+        dots([
+          [108, 312, 11],
+          [154, 316, 11],
+          [200, 312, 11],
+          [246, 316, 11],
+          [292, 312, 11],
+        ]),
+      ),
+      region('bolo-cima', rect(112, 172, 176, 78, 14)),
+      region('cobertura-cima', frosting(112, 288, 172, 194, 11, 6)),
+      region('vela-1', rect(140, 122, 22, 52, 5)),
+      region('vela-2', rect(189, 122, 22, 52, 5)),
+      region('vela-3', rect(238, 122, 22, 52, 5)),
+      region('chamas', path(`${flame(151, 116)} ${flame(200, 116)} ${flame(249, 116)}`)),
+      region('presente', rect(8, 300, 62, 52, 6)),
+      region(
+        'laco',
+        dots([
+          [26, 292, 13],
+          [52, 292, 13],
+        ]),
+      ),
+      region('chapeu', path('M328 354 L356 284 L384 354 Z')),
+      region('pompom', circle(356, 280, 12)),
+    ],
+    ink: `<path d="M-10 18 Q200 122 410 18"/><path d="M48 216 Q40 250 50 290 M352 216 Q362 240 354 262"/>
+      <path d="M39 300 V352"/>`,
   },
 ];

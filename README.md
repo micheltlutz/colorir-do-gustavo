@@ -18,8 +18,8 @@ Bom saber:
 
 ## Como se joga
 
-- **Galeria:** 12 desenhos (carro, caminhão, trator, ônibus, avião, foguete, barco, trem, peixe, dinossauro, casa e borboleta). Os pintados aparecem coloridos; os completos ganham uma estrela.
-- **Pintar:** escolha uma cor na paleta (cada cor toca uma nota) e toque numa parte do desenho. A borda da folha mostra a cor escolhida. O branco funciona como borracha.
+- **Galeria:** 24 desenhos. Os 12 primeiros são mais simples (carro, caminhão, trator, ônibus, avião, foguete, barco, trem, peixe, dinossauro, casa e borboleta); os outros 12 têm mais partes para pintar (caminhão de bombeiros, helicóptero, escavadeira, submarino, balão, arco-íris, castelo, cachorro, leão, polvo, robô e bolo de aniversário). Os pintados aparecem coloridos; os completos ganham uma estrela.
+- **Pintar:** escolha uma cor na paleta e toque numa parte do desenho. São 12 cores, cada uma em 3 tons (claro, médio e escuro), e cada tom toca uma nota. A borda da folha mostra a cor escolhida. O branco funciona como borracha.
 - **Botões:** voltar à galeria, desfazer e apagar tudo (pede confirmação com um ✓ e também pode ser desfeito).
 - Pintar todas as partes de um desenho vira festa: confete, música e estrela.
 
@@ -38,7 +38,7 @@ npm run icons           # gera os ícones PNG a partir de public/icon.svg
 Estrutura:
 - `src/paint/drawings.ts`: os desenhos (formas SVG pintáveis, de trás para frente, mais os traços que não se pintam).
 - `src/paint/state.ts`: pintar, desfazer, apagar e "desenho completo" (código puro, testado).
-- `src/paint/palette.ts`: as cores e a nota de cada uma.
+- `src/paint/palette.ts`: as cores (3 tons de cada) e a nota de cada uma.
 - `src/ui/`: galeria, tela de pintura, ícones e confete.
 - `src/audio/sfx.ts`: sons sintetizados (sem arquivos de áudio).
 

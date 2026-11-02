@@ -163,20 +163,20 @@ body {
   padding: 10px;
 }
 
-/* 4x3 deitado, 3x4 em pé: sempre cabe sem rolar. */
+/* 6x4 deitado, 4x6 em pé: sempre cabe sem rolar. */
 .gallery-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 2.4cqmin;
-  width: min(100cqw, 100cqh * 4 / 3);
-  aspect-ratio: 4 / 3;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 2cqmin;
+  width: min(100cqw, 100cqh * 6 / 4);
+  aspect-ratio: 6 / 4;
 }
 
 @media (orientation: portrait) {
   .gallery-grid {
-    grid-template-columns: repeat(3, 1fr);
-    width: min(100cqw, 100cqh * 3 / 4);
-    aspect-ratio: 3 / 4;
+    grid-template-columns: repeat(4, 1fr);
+    width: min(100cqw, 100cqh * 4 / 6);
+    aspect-ratio: 4 / 6;
   }
 }
 
@@ -340,14 +340,30 @@ body {
   height: 76%;
 }
 
-/* Paleta: 2 colunas na lateral (deitado) ou 2 fileiras embaixo (em pé). */
+/*
+ * Paleta: cada cor tem três tons (claro, médio, escuro).
+ * Deitado: na lateral, uma fileira por cor (12 fileiras de 3).
+ * Em pé: embaixo, uma coluna por cor (12 colunas de 3).
+ * O tamanho das bolinhas acompanha a altura (ou a largura) da tela.
+ */
 .palette {
-  --dot: clamp(44px, 7.4vmin, 68px);
+  --gap: clamp(5px, 1vmin, 10px);
+  --dot: clamp(30px, calc((100vh - var(--pad-t) - var(--pad-b) - 11 * var(--gap)) / 12), 64px);
+  --dot: clamp(30px, calc((100dvh - var(--pad-t) - var(--pad-b) - 11 * var(--gap)) / 12), 64px);
   display: grid;
-  grid-template-columns: repeat(2, var(--dot));
+  grid-template-columns: repeat(3, var(--dot));
   grid-auto-rows: var(--dot);
-  gap: clamp(8px, 1.5vmin, 14px);
+  gap: var(--gap);
   align-content: center;
+}
+
+/* Tela deitada e baixa (celular): duas cores por fileira. */
+@media (orientation: landscape) and (max-height: 560px) {
+  .palette {
+    --dot: clamp(28px, calc((100vh - var(--pad-t) - var(--pad-b) - 5 * var(--gap)) / 6), 64px);
+    --dot: clamp(28px, calc((100dvh - var(--pad-t) - var(--pad-b) - 5 * var(--gap)) / 6), 64px);
+    grid-template-columns: repeat(6, var(--dot));
+  }
 }
 
 .swatch {
@@ -365,8 +381,10 @@ body {
 }
 
 .swatch.selected {
-  transform: scale(1.18);
-  box-shadow: 0 0 0 4px #ffffff, 0 0 0 7px var(--ink), 0 4px 10px rgba(0, 0, 0, 0.3);
+  position: relative;
+  z-index: 1;
+  transform: scale(1.12);
+  box-shadow: 0 0 0 3px #ffffff, 0 0 0 6px var(--ink), 0 4px 10px rgba(0, 0, 0, 0.3);
 }
 
 @media (orientation: portrait) {
@@ -380,7 +398,11 @@ body {
 
   .palette {
     order: 1;
-    grid-template-columns: repeat(7, var(--dot));
+    --dot: clamp(28px, calc((100vw - var(--pad-l) - var(--pad-r) - 11 * var(--gap)) / 12), 64px);
+    grid-template-columns: none;
+    grid-template-rows: repeat(3, var(--dot));
+    grid-auto-flow: column;
+    grid-auto-columns: var(--dot);
     justify-content: center;
   }
 
